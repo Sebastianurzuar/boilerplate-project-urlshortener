@@ -37,6 +37,7 @@ app.get("/api/hello", (req, res) => {
 app.post("/api/shorturl", async (req, res) => {
   const original_url = req.body.url;
 
+  // Validar formato de URL
   let urlObject;
   try {
     urlObject = new URL(original_url);
@@ -44,11 +45,21 @@ app.post("/api/shorturl", async (req, res) => {
     return res.json({ error: "invalid url" });
   }
 
+  // Validar DNS
   dns.lookup(urlObject.hostname, async (err) => {
     if (err) return res.json({ error: "invalid url" });
 
-    const count = await Url.countDocuments({});
-    const short_url = count + 1;
+    // Verificar si ya existe
+    const existing = await Url.findOne({ original_url });
+    if (existing)
+      return res.json({
+        original_url: existing.original_url,
+        short_url: existing.short_url,
+      });
+
+    // Obtener el último short_url correctamente
+    const last = await Url.findOne().sort({ short_url: -1 });
+    const short_url = last ? last.short_url + 1 : 1;
 
     const newUrl = new Url({ original_url, short_url });
     await newUrl.save();
